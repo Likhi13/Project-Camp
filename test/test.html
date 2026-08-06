@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>CORS Test</title>
+</head>
+
+<body>
+    <h1>CORS Failure Demo</h1>
+    <button onclick="makeRequest()">Send Request</button>
+
+    <script>
+        function makeRequest() {
+            fetch("http://localhost:8000/api/v1/register", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ email: "test@example.com", password: "123456789A$", username: "three"}),
+                credentials: "include" // force cookies/credentials
+            })
+                .then(res => res.json())
+                .then(data => console.log("Success:", data))
+                .catch(err => console.error("Error:", err));
+        }
+    </script>
+</body>
+
+</html>

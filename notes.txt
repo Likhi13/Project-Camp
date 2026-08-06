@@ -1,0 +1,548 @@
+two imp components for the app:
+ is routing structure working- Express 
+ db and interaction- Mongo
+ we use mongoose for ORM which talks to mongo thru mongoose
+---------------------------------------------
+Express:
+Nodejs web framework which is fast and unopinionated
+installation:
+npm install express@ver
+npm install express@latest/ npm install express
+
+1. import express
+2.create app
+3.assign port
+4.add routes
+-----------------------------------------------
+Postman-
+tool for api testing and development of api and also documentation
+----------------------------------------------
+App.js-(personal preferences)
+reason: index is  the main (entry point) which shouldnt be dependent on any log like express,db
+so we use app.js for express logic and index.js only has the entry point
+
+App.js has express  code 
+
+imp config like Port, dotenv is in index.js
+--------------------------------------------------
+CORS:(Cross origin resource sharing)
+Problem: when anyone is designing backend app involving api testing tools
+but when someone is building the UI for this backend, then they will  face CORS errors 
+
+What Happens:
+In regular app everything hosted in same server
+So browser expects the ui requests also to come from same server(origin)
+
+Old days:
+both server n ui lives on same origin
+
+Now:
+But now browser lives on vercel
+server lives on aws/digital ocean 
+browser doesnt allow crosss origin resource sharing
+means if port num  change, sub domain (www.) change- then browser doesn't allow to communicate bwn ui and server
+-----------------------------------------
+
+Basic Express Configuration:
+app.use->(middleware)-> adding an additional layer bwn ui  and backend
+=>the request from ui first goes thru the middleware and then then to  the server
+1. support json data
+2. send data in POST req encoded in url
+3. Make this part of app publicly viewable-To serve ststic assests from public folderr  
+4.CORS package connect 
+'''
+app.use(express.json({ limit: "16kb" }));
+app.use(express.urlencoded({ extended: true, limit: "16kb" }));
+app.use(express.static("public"));
+
+//cors
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN?.split(",") || "http://localhost:5173",
+    credentials:true,
+    methods:["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
+    allowedHeaders:["Content-Type","Authorization"]
+  }),
+);
+
+'''
+
+(2.)
+(like ?name=likhitha&age=20)
+To turn that string into a usable JavaScript object, Node.js can use two different helper libraries:
+
+querystring → older, simpler, built-in library.
+qs → more powerful library that can handle complex/nested objects.
+
+extended: false → use querystring. Good for flat/simple data.
+extended: true → use qs. Good for nested/complex data (like objects inside objects or arrays).
+
+(4.)
+origin: backend expressing what origins will i allow myself to communicate to
+
+CORS propogation takes some time(4-5 secs)- be patient
+-----------------------------------------------------------
+
+Standardizing API RESPONSE and API Errors:
+When a client req smtg, serever sends either:
+=>RESPONSE
+=>Error
+
+We want to standardize both: predictable format
+Status code- succes, fail
+data - ex: id of user if sucessfully regeistered
+message- that i want to send
+error stacks/ capture traces
+
+RESPONSE: status code, data, message (this hav to design by ourselves by designing class in utils folder)
+Error: status Code, data, message, errors, stack trace (alr managed in node js ecosystem: Error class extened in utils folder)
+
+-------------------------------------------------------------------------
+Keeping data in constants:
+=> in env file kept safe in an environment
+=>USE: Some things may change/extend in future so we create constants and refer to file for modification
+
+'''
+//object
+export const UserRolesEnum={
+    ADMIN:"admin",
+    PROJECT_ADMIN:"project_admin",
+    MEMBER:"member"
+}
+//Returns an array of just the values(here [admin,project_admin,member]) of the loopable own properties of an object
+export const AvailableUserRole=Object.values(UserRolesEnum)
+'''
+
+----------------------------------------------------------------------------------
+Connecting to mongodb ATLAS:
+server->mongoose->ATLAS->Mongodb
+'''
+import mongoose from "mongoose"
+
+const connectDB=async()=>{
+    try{
+        //takes few sec to connect so use await
+        await mongoose.connect(process.env.MONGO_URL)
+        console.log("✅ MongoDB Connected");
+    }catch(err){
+        console.log("❌ MongoDb connection error",err);
+        process.exit(1)
+    }
+}
+export default connectDB
+'''
+options to use mongodb:
+1. install mongodb and use locally
+2. use docker for containerization DB
+3.use MongoDB online service ATLAS
+
+connection url="link.../name_of_db" and 
+change the username and pswd in the link after creating a user in the mongodb atlas
+suggestiion:dont include sepcial characs in pswd ..will create problems
+------------------------------------------------------------------------------------
+===========================================================================
+*************************************Starting building:*************************************
+healthcheck routes:
+every app has these for system helath monitoring, whether they r able to send back a response / recv req or not
+it is GET request
+
+Router standalone module in express-STUDY
+
+/api/v1/healthcheck  === "/" route in routes/healthcheck.routes.js
+/api/v1/healthcheck/instagram  === "/instagram" route in routes/healthcheck.routes.js
+Example:
+'''import {ApiResponse} from "../utils/api-response.js"
+
+const healthCheck = (req,res)=>{
+    try {
+        res.status(200).json(
+            new ApiResponse(200,{message:"Server is running"})
+        )
+    } catch (error) {
+        
+    }
+}
+export {healthCheck}
+'''
+controllers are treated like variables/constants that are later exported.
+So the reason isn't that function is wrong—it's mostly modern JavaScript style, consistency, and avoiding this/hoisting quirks.
+Better way: rather than using try catch as they will create some issues, we will use higher order functions.
+----------------------------------------------------------------------------------------------------------------------
+Catch errors better with ASYNC handlers(HOF):
+
+HOF= input as function and returning function
+
+Problem: instead of wrapping every controller in its own try...catch. Note that try...catch itself doesn't cause problems; the issue is mainly repetition
+ and inconsistent error handling across many controllers.
+
+next() → continue to the next middleware, next(error)
+ → jump to the error handler.
+
+Purpose: "Run the controller. If any error happens, automatically forward it to Express's error handler."
+in utils:
+'''
+const asyncHandler = (requestHandlerFn) => {
+  return (req, res, next) => {
+    Promise.resolve(requestHandlerFn(req, res, next)).catch((error) =>
+      next(err),
+    );
+  };
+};
+
+export { asyncHandler };
+
+'''
+--------------------------------------------------------------------------------------------------------------------------
+User schema in mongoose:
+'''
+import mongoose, { Schema } from "mongoose";
+
+const userSchema = new Schema(
+  {
+    avatar: {
+      //image
+      type: {
+        url: String,
+        localPath: String,
+      },
+      default: {
+        url: `https://placehold.co/200x200`,
+        localPath: "",
+      },
+    },
+    username: {
+      type: String,
+      //validation
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      //optimize searches
+      index: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    fullName: {
+      type: String,
+      trim: true,
+    },
+    password: {
+      type: String,
+      //handle error using arr
+      required: [true, "Password is required"],
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    refreshToken: {
+      type: String,
+    },
+    forgotpaswordToken: {
+      type: String,
+    },
+    forgotPasswordExpiry: {
+      type: Date,
+    },
+    emailVerificationToken: {
+      type: String,
+    },
+    emailVerificationExpiry: {
+      type: Date,
+    },
+  },
+  { timestamps: true },
+);
+export const User = mongoose.model("User", userSchema);
+''''
+In mongoDB even if u create "User"-> converted into "users" lowercase and plural(convention)
+
+mongoose allows to attach functionalities(methods/hooks)
+and these can be attached to SCHEMA
+------------------------------------------------------------------------------------------------------------
+Pre and post-hooks of mongoose:(task= password hashing)
+pre hook- perform some  task before saving data
+example:
+'''
+userSchema.pre("save",async function(next){
+  //if not modified return next()
+  if(!this.isModified("password")) return next()❌
+
+  //for first time seting pswd and all the time when modified
+  this.password=await bcrypt.hash(this.password,8)
+  next()❌
+})
+
+'''
+post hook- perform some task after saving data
+ERROR HANDLED: Your code is correct in principle, but since you’re using async, you can drop next entirely, so remove "next()"
+If you keep next, don’t mark the function async—instead use callbacks.
+-----------------------------------------------------------------------------------------------------------------------
+
+HANDLING MONGOOSE METHODS:
+purpose: there r some methods which hv to be attached in schema itself n not controller
+exmp: verifying the the pswd enetred is correct or not
+'''
+userSchema.methods.isPasswordCorrect = async function (password) {
+  return await bcrypt.compare(password, this.password);
+};
+
+'''
+------------------------------------------------------------------------------------------------------------------
+JSON web Tokens(JWT):
+Open standard that defines a compact n self-contained way for securely tranmitting info bwn parties as a JSON OBJECT.
+This is digitally signed.
+
+In its compact form, JSON Web Tokens consist of three parts separated by dots (.), which are:
+
+Header-type of the token,signing algorithm
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+Payload: claims- stmts about entity(user) and additional data
+-> these r Base64Url encoded
+{
+  "sub": "1234567890",
+  "name": "John Doe",
+  "admin": true
+}
+Signature-To create the signature part you have to take the encoded header,
+the encoded payload, a secret, the algorithm
+USE: The signature is used to verify the message wasn't changed along the way
+and AUTH-(verify that the sender of the JWT is who it says it is.)
+
+exmpl: xxxxx.yyyyy.zzzzz
+
+usage:once user logged in then  w every single req we send JWT to tell tht u r authorized user,
+
+syntax -> in the authorization header - authorization: Bearer <token>
+--------------------------------------------------------------------------------------------------------------------
+
+ACCESS and REFRESH TOKENS:
+TOKENS categorized into:
+1. with data- use jsonwebtokens module
+2. without data- use crypto module in nodejs
+
+Access token - short lived, stateless(send a copy w every request)
+refresh token- long lived, stateful(stored in DB)
+
+->>above both r tokens with data
+
+client has : access token, refresh token
+server has : refresh token only
+>> refresh token: if access token is expired,
+                  send a special response to frontend(401,402)
+                  and when frontend gets this , sends refresh token to server
+                  server checks in DB, if matches, generates fresh access token and sent to user
+
+
+-----------------------------------------------------------------------------------------------------------------
+
+email sending for verify/forgot pswd:
+template creation : using mailgen
+sending email : production: use  (if AWS then use SES(simple emial service), or Brevo)
+                development: use (to test if email is right content use mailtrap)
+
+Sending email has to be async , use QUEUES if needed=> use nodemailer 
+
+
+CODE: in -> utils/email.js
+workflow->
+User Action
+    │
+    ▼
+Backend Route
+    │
+    ▼
+Generate Mailgen Content
+(emailVerifContent / forgotPswdfContent)
+    │
+    ▼
+sendEmail(options) options are passed by backend dev after getting user's details from db/request
+    │
+    ▼
+[   await sendEmail({
+    email: user.email,
+    subject: "Verify your email",
+    mailgenContent: emailVerifContent(user.username, verificationUrl)
+});
+]
+
+Mailgen → (HTML + Text) content to email conversion
+    │
+    ▼
+Nodemailer (SMTP) using transporterr object with credentials
+    │
+    ▼
+Email sent to user's inbox
+--------------------------------------------------------------------------------------------------
+
+Register a user: 
+
+workflow->
+take some data 
+-> validate the data 
+-> check in db if user exists 
+-> SAVE the new user (access token,refresh token,general token,sendmail)
+-> verify user with email
+->send response back to the request
+
+Code flow:
+1. from request body ->object destructuring assignment
+2. DB operation - find user w username/email
+3. check fr existing user-> if exists throw error
+..validation logic
+4. save user to DB(DB operation)
+5. generate temporary token
+
+generate temporary token : why?->
+1. To verify user / pswd reset when frgot pswd
+2. Access/refresh tokens are tied to authentication sessions. If you reused them for password reset
+, anyone with a stolen token could reset accounts.
+
+Generating access and refresh tokens:
+1. find user by id 
+2. call mmethods gen access n refresh token store them in variables
+3. assign refresh token field to user  
+4. save the user to db w/o need for validation b4 saving
+--------------------------------------------------------------------------------------------------
+Custom Validations:
+Zod, yup,express-validator
+validators implemented using middleware
+Working plan:
+1.write middleware -----
+2.write validation ----| 
+3.implement in routes <-
+
+CODE in middlewares/validator.middleware.js+
+validators/index.js+ routes/auth.routes.js
+THis file can be a reusable template for validation
+
+// attaches validation checks to req- userRegisterValidator() validation template returns array of middleware  validator functions results which is attached  to req object
+// reads errors from req using validationResult(req)-validate middleware which captures the results n process it
+// only runs if validate calls next()- registerUser thecontroller func to register user runs only after above 2 success  
+--------------------------------------------------------------------------------------------------
+
+Login user with tokens and cookies
+
+1.take data frm user
+2.validate
+3.if user exists
+4.if pswd is correct
+5.Generate - TOKENS
+6.send tokens in cookies
+Package used- COOKIE PARSER is used by express to read/write cookies 
+------------------------------------------------------------------------------------------------------------
+
+auth middleware for controllers:
+tokens r trnaferred :
+in web-> using cookies
+in mobiles-> using auth headers
+
+every single rreq sent to server is thru cookie/bearer token 
+so we use bearer
+
+OPTIONAL CHAINING OPERATOR "?":
+It lets you safely access properties on an object that might be null or undefined.
+
+Instead of throwing an error if the property doesn’t exist, it just returns undefined.
+
+CODE EX:const token = req.cookies?.accessToken 
+           || req.header("Authorization")?.replace("Bearer ","");
+what happens? 
+req.cookies?.accessToken → If req.cookies exists,
+ it tries to read accessToken. If req.cookies is undefined,
+ this whole expression becomes undefined instead of crashing.
+
+CODE FLOW:
+1.encoded token grab from req
+2.if no token throw unauth
+3.decoding the token using jwt module's verify(encoded token, secret) method and throw error is user w the token not found
+------------------------------------------------------------------------------------------------
+
+Logout a user:
+1.check if the user is logged in first: using above middleware and add to route b4  logout func
+2.clear DB traces and  update new user object
+3.clear cookie data refresh n acces token
+4. resturn json res 200
+---------------------------------------------------------------------------------------------------
+Writing logic for remaining controllers :
+
+1. GET /current-user
+return a json response with "res.user"
+
+2. GET /verify-email/:emailVerificationToken
+  1. grab token from url(params)
+  2. hash the token:  again as we are not saving unhashed token in the DB so it is not secure
+  that token only passed as url param should be hashed when sending it to user
+  3.above hashedToken gives the same hashedToken as the one stored in Db
+  4.Find user in DB: using hashedToken
+  5.if token invalid/expired throw error 
+  6.else set emailVerified flag as true and set expiry time and token undefined
+  7.return response
+3. POST /resend-email-verification
+Same as sending email during registration
+  1.  //secured route so check first user is logged in
+  2.grab tokens
+  3./assign to user object
+  4.save to DB
+  5.send email
+  6.return response
+4. POST /refresh-token
+  1.grab old token
+  2.check if exists->unauth
+  3.decode token using jwt verify
+  4.search user w id attached to token
+  5.check user exists 
+  6.also check token match w db(ensures that only the most recent tokenis valid)
+  7.
+jwt.verify()method:
+The jwt.verify() method is the gatekeeper for JSON Web Tokens. Here’s exactly what it does:
+  🔍 What jwt.verify() does
+  Checks the signature
+
+  It takes the token (incomingRefreshToken) and the secret (process.env.REFRESH_TOKEN_SECRET).
+
+    It recalculates the signature using the header + payload and compares it with the signature inside the token.
+
+    If they don’t match, the token is invalid (maybe tampered with).
+
+    Validates expiration & other claims
+
+    If the token has an exp (expiry), nbf (not before), or iat (issued at) claim, verify() enforces those rules.
+
+    Example: if the token expired 10 minutes ago, verify() throws an error.
+
+    Decodes the payload safely
+
+    If the token passes signature + claim checks, verify() returns the decoded payload (e.g., { _id: "12345", role: "user" }).
+
+    This is what you’re storing in decodedRefreshToken.
+
+NOTE:
+Cookies: names must match what the client expects ("refreshToken").
+
+  JSON response: property names must match your API contract (refreshToken),
+  even if your local variable is called newRefreshToken.
+5. POST /forgot-password:
+ ->Check user
+ → create reset token 
+ → save token in DB 
+ → email reset link
+  → return success response.
+
+6. POST/ reset-password/:resetToken
+
+7.POST/ change-password
+ 1. from parameters grab reset token n ne pswd from form 
+ 2.hash the token
+ 3.find user matching that token and within expiry
+ 4.clean fields
+ 5. assign pswd
+ 6. return response
