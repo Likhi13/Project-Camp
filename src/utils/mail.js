@@ -4,7 +4,6 @@ import nodemailer from "nodemailer";
 
 //has to be async
 const sendEmail = async (options) => {
-
   //default mailgen branding
   const mailGenerator = new Mailgen({
     theme: "default",
@@ -15,12 +14,12 @@ const sendEmail = async (options) => {
   });
   //converts content into plaintext/html EMAIL
   const emailTextualContent = mailGenerator.generatePlaintext(
-    options.mailgenContent, 
+    options.mailgenContent,
   );
   const emailHtml = mailGenerator.generate(options.mailgenContent);
 
   //transporter object that takes ur email nd send it
-  const transporter=nodemailer.createTransport({
+  const transporter = nodemailer.createTransport({
     host: process.env.MAIL_TRAP_HOST,
     port: process.env.MAIL_TRAP_PORT,
     auth: {
@@ -29,19 +28,21 @@ const sendEmail = async (options) => {
     },
   });
 
-  const mail={
-    from:"mail.taskmanager@example.com",
-    to:options.email,
-    subject:options.subject,
-    text:emailTextualContent,
-    html:emailHtml
-  }
+  const mail = {
+    from: "mail.taskmanager@example.com",
+    to: options.email,
+    subject: options.subject,
+    text: emailTextualContent,
+    html: emailHtml,
+  };
 
   try {
-    await transporter.sendMail(mail)
+    await transporter.sendMail(mail);
   } catch (error) {
-    console.error("email service failed silently. Make sure you have provided your MAILTRAP credentials in the .env file")
-    console.error("Error: ",error)
+    console.error(
+      "email service failed silently. Make sure you have provided your MAILTRAP credentials in the .env file",
+    );
+    console.error("Error: ", error);
   }
 };
 
@@ -84,5 +85,14 @@ const forgotPswdfContent = (username, passwordResetUrl) => {
     },
   };
 };
-
-export { emailVerifContent, forgotPswdfContent, sendEmail };
+const regularTemplate = (username, content) => {
+  return {
+    body: {
+      name: username,
+      intro: content,
+      outro:
+        "Need help, or have queries? Just reply to this email, we'd love to help.",
+    },
+  };
+};
+export { emailVerifContent, forgotPswdfContent, regularTemplate, sendEmail };

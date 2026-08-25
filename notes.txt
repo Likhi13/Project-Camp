@@ -546,3 +546,166 @@ Cookies: names must match what the client expects ("refreshToken").
  4.clean fields
  5. assign pswd
  6. return response
+---------------------------------------------------------------------------------------------
+Schemas:
+
+User
+Project
+Note
+ProjectMember
+Task
+Subtask
+----------
+ObjectId:
+
+->ObjectId is the special type MongoDB uses for its default _id field.
+
+->In Mongoose, you can access it via mongoose.Types.ObjectId.
+
+->It represents a 12-byte unique identifier (timestamp + machine ID + process ID + counter).
+
+->Every document in a collection gets one automatically unless you override it.
+-------
+What enum Does in Mongoose:
+Purpose: Ensures data integrity by limiting a field to specific values.
+-------
+mongoose.Types.ObjectId():
+with new:
+-------
+const id = new mongoose.Types.ObjectId();
+->creates fresh unique ObjectId
+
+without new:
+-------
+const id=mongoose.Types.ObjectId(someId)
+converts existing string into an ObjectId type.
+can use with new too!!!
+
+✅ Rule of Thumb
+Need a fresh ID? → new mongoose.Types.ObjectId()
+Need to convert a string? → Either mongoose.Types.ObjectId(string) 
+or new mongoose.Types.ObjectId(string) (both valid, new is just more explicit).
+-------------
+$lookup->creates an array 
+----------------------------------------------------------------------------------------------------
+DATABASE DESIGN
++--------+          +----------+          +------+
+|  User  |<-------->|  Project |<-------->| Note |
++--------+          +----------+          +------+
+     ^  \                ^   ^
+     |   \               |   |
+     |    \              |   ----------------                
+     |     \             |                   |
+     |      \            |                   |
+     |       \           |                   |
+     |        \          |                   |
+     |         v         |                   |
+     |      +------+     |                   |
+     |<---->| Task |<----+                   |
+     |      +------+                         |
+     |           ^                           |
+     |           |                           |
+     |           |                           |
+     |     +---------+                       |
+     |     | Subtask |                       |
+     |     +---------+                       |
+     |                                       |
+     |             +---------------+         |
+     +------------>| ProjectMember |<--------+
+                   +---------------+
+
+
+------------------------------------------------------------------------------------------------------
+CREATE, UPDATE, DELETE Projects:
+if a user  is logged in means
+->we can first verify the jwt and then 
+->we have access to req.user and get all the details of the user
+
+ROUTES:
+-------
+POST /createProject:
+1.grab name and description
+2.create a project doc
+3.create a project member doc upgrading to admin
+4.return response
+
+PUT /updateProject:
+1.grab desc and name
+2.grab project id provided in url
+3.find by id and update 
+4.throw error if project not exists
+5.return res
+
+GET /getprojects:
+1.aggegatiion pipeline- find projects of the user (req.user._id)
+10 ProjectMember docs
+        │
+        │ $match user = U1
+        ▼
+3 ProjectMember docs
+        │
+        │ OUTER $lookup
+        │
+        │ "Give me the Project for each membership"
+        ▼
+P1 ─────────┐
+P2          │
+P3          │
+            │
+            │ INNER $lookup
+            │ "For this Project,
+            │  find ALL its members"
+            ▼
+P1 → PM1, PM2, PM3 → members = 3
+P2 → PM4, PM5      → members = 2
+P3 → PM6, PM7, PM8 → members = 3
+            │
+            ▼
+       $unwind
+            │
+            ▼
+      $project
+            │
+            ▼
+Final project + role
+
+GET /projectById:
+1.find the project by id passed in req params
+
+PUT /addMembersToProject:
+1.from body email and role 
+2.from params projectID 
+3.find user by email else throw error
+4.find projectMember by (user id and project id} and update the role of user in the doc
+5.  new: true (return new doc ) upsert:true (if doc doesn't exist create one)
+
+GET /getProjectMembers:
+1.search for project exists or not first if not throw error
+2. find project members of that project :pipeline
+10 ProjectMember docs
+        │
+        │ $match project = P1
+        ↓
+3 ProjectMember docs
+        │
+        │ $lookup users
+        ↓
+For each member:
+PM1 → U1
+PM2 → U2
+PM3 → U3
+        │
+        │ INNER $project
+        │ keep only:
+        │ _id, username, fullName, avatar
+        ↓
+user: [user document]
+        │
+        │ $addFields
+        │ $arrayElemAt(user, 0)
+        ↓
+user: user document
+        │
+        │ final $project
+        ↓
+project + user + role + dates
