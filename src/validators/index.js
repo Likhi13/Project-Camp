@@ -64,7 +64,18 @@ const userForgotPasswordValidator = () => {
 };
 
 const userResetForgotPasswordValidator = () => {
-  return [body("newPassword").notEmpty().withMessage("Password is required")];
+  return [
+    body("newPassword")
+      .trim()
+      .notEmpty()
+      .withMessage("Password is required")
+      .isLength({ min: 8 })
+      .withMessage("Password must be atleast 8 characters long.")
+      .matches(/[A-Z]/)
+      .withMessage("Password must contain at least one uppercase letter")
+      .matches(/[!@#$%^&*(),.?":{}|<>]/)
+      .withMessage("Password must contain at least one special character"),
+  ];
 };
 
 const createProjectValidator = () => {

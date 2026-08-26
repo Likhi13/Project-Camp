@@ -8,6 +8,7 @@ import {
   sendEmail,
 } from "../utils/mail.js";
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -222,7 +223,7 @@ const resendEmailVerification = asyncHandler(async (req, res) => {
     throw new ApiError(409, "Email is already verified");
   }
   //grab tokens
-  const { unHashedToken, hashedToken, tokenExpiry } = generateTemporaryToken();
+  const { unHashedToken, hashedToken, tokenExpiry } = user.generateTemporaryToken();
   //assign to user object
   user.emailVerificationToken = hashedToken;
   user.emailVerificationExpiry = tokenExpiry;
@@ -235,7 +236,7 @@ const resendEmailVerification = asyncHandler(async (req, res) => {
     subject: "Please verify your emmail",
     mailgenContent: emailVerifContent(
       user.username,
-      `${req.protocol}://${req.get("host")}/api/v1/users/verif-email/${unHashedToken}`,
+      `${req.protocol}://${req.get("host")}/api/v1/users/verify-email/${unHashedToken}`,
     ),
   });
 
@@ -246,7 +247,7 @@ const resendEmailVerification = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   //grab old token
-  const incomingRefreshToken = req.cookie.refreshToken || req.body.refreshToken;
+  const incomingRefreshToken = req.cookies?.refreshToken || req.body.refreshToken;
 
   //check if exists or unauth
   if (!incomingRefreshToken) {
@@ -319,7 +320,8 @@ const forgotPasswordRequest = asyncHandler(async (req, res) => {
     email: user?.email,
     subject: "Password reset request",
     mailgenContent: forgotPswdfContent(
-      `${(user.username, process.env.FORGOT_PSWD_REDIRECT_URL)}/${unHashedToken}`,
+      user.username,
+      `${process.env.FORGOT_PSWD_REDIRECT_URL}/${unHashedToken}`,
     ),
   });
   return res
@@ -339,7 +341,7 @@ const resetForgotPassword = asyncHandler(async (req, res) => {
   const { newPassword } = req.body;
 
   //hash the token
-  let hashedToken = crypto.createHash("sha256").update(resetToke).digest("hex");
+  let hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
   //find user matching that token and within expiry
   const user = await User.findOne({

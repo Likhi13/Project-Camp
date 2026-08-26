@@ -709,3 +709,33 @@ user: user document
         │ final $project
         ↓
 project + user + role + dates
+
+PUT /updateMemberRole:
+1.grab projectid,role,userId
+2.check for project and user if not exist throw error
+3.find project using project id and user id if not throw error
+4.update the project member role in using project id 
+5.send email
+
+DELETE /deleteMember:
+1.grab user id and project id
+2.check user exists and project exists
+3.find project member dooc based on project and user id
+4.delete project member doc  based on projectmember id
+5.send email
+-----------------------------------------------------------------------------------------------------------------------------
+MIDDLEWARE-validate project permission
+
+it checks whether the user who fired the request is allowed to fire it or not
+->takes allowed roles array as a parameter 
+1.takes project id from params
+2.checks for project id exists or null else throw error
+2. finds the project member with the project and user id else throws error
+3.assign the searched projectMember's role to givenRole attr 
+4.checks whether the givenRole included  in allowed roles array else throws error  
+5. passes  control with next()
+------------------------------------------------------------------------------------------------------------------------------
+VALIDATORS- 
+validate while adding project for name,email
+validate while addding member to a project and their role is valid 
+-----------------------------------------------------------------------------------------------------------------------------
