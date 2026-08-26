@@ -1,2 +1,26 @@
-node_modules
+# Environment variables
 .env
+
+# Dependencies
+node_modules/
+
+# Uploaded files
+public/images/*
+
+# Keep the .gitkeep file
+!public/images/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+
+# IDE/editor files
+.vscode/
+.idea/
