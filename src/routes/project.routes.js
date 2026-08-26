@@ -21,7 +21,6 @@ import {
   validateProjectPermission,
 } from "../middlewares/auth.middleware.js";
 import { AvailableUserRole, UserRolesEnum } from "../utils/constants.js";
-import { User } from "../models/user.models.js";
 
 const router = Router();
 router.use(verifyJWT);

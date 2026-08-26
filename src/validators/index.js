@@ -100,6 +100,21 @@ const addMemberToProjectValidator = () => {
       .withMessage("Role is invalid"),
   ];
 };
+const createTaskValidator = () => {
+  return [
+    body("title").notEmpty().withMessage("Title is required"),
+    body("description").optional(),
+    body("assignedTo")
+      .notEmpty()
+      .withMessage("Task must be assigned")
+      .isEmail()
+      .withMessage("Invalid  email address"),
+  ];
+};
+const createSubTaskValidator = () => {
+  return [body("title").notEmpty().withMessage("Title is required")];
+};
+
 export {
   userRegisterValidator,
   userLoginValidator,
@@ -108,4 +123,6 @@ export {
   userResetForgotPasswordValidator,
   createProjectValidator,
   addMemberToProjectValidator,
+  createTaskValidator,
+  createSubTaskValidator,
 };

@@ -739,3 +739,562 @@ VALIDATORS-
 validate while adding project for name,email
 validate while addding member to a project and their role is valid 
 -----------------------------------------------------------------------------------------------------------------------------
+Add route in app.py 
+---------------------------------------------------------------------------------------------------------------------------
+multer:
+3rd party package which is  used to handle attachments(input/upload files)
+
+express -> multer middleware -> request image upload 
+images recvd via multer ->multer sends to express ->access thru "req.files"
+-------------
+USAGE:
+multer adds a "body" object and a "file" object to the "request" object.
+body contains the value of the value of the text fields of the form,
+file or files  object contains the files uploaded vis the form
+
+
+-----------------------------------------------------------------------------------------------------------------
+TASK routes:
+NOTE: IMP***
+While destructing the route param name and variable name should be SAME
+ Example: Take the property named taskId from req.params and create a variable named taskId containing its value.
+----------------------------
+    GET /gettasks/:projectID
+    ------------------------
+1.grab projectid from params 
+2.search if exists else throw error 
+3.find the tasks assigned under the  project  
+4.use populate too attach the username,fullname,avatar of the assignedTo user
+populate():
+lets you go one level deeper through a referenced ObjectId and bring back selected fields from the referenced document.
+`````````````````````````````````````````````````````````
+const tasks = await Task.find({
+  project: new mongoose.Types.ObjectId(projectId)
+}).populate("assignedTo", "avatar username FullName");
+``````````````````````````````````````````````````````````
+Task.find({ project: projectId })
+        ↓
+Find ALL tasks belonging to this project
+        ↓
+3 tasks found
+        ↓
+populate("assignedTo", ...)
+        ↓
+For each task, resolve its assignedTo User ID
+        ↓
+Return the 3 tasks with user information
+---------------------------------
+    POST/ create-task/:projectId:
+    -----------------------------
+1.grab the title,desc,assignedto,status from the body and projectId from params 
+2.validate if project exists usinf id and store it  in project constant 
+3. grsb  files if any 
+4.unwrap using map into attachments variable where each file has a defined scehma (url-path to destination,mimetype,filesize)
+5.grab assignedBy from the req body 
+5.find the assignedTo user if exists using the email entered 
+6.create a task object with all the above findings(
+    title,
+    description,
+    project:new mongoose.Types.ObjectId(projectId),
+    assignedTo: assignedTo ? new mongoose.Types.ObjectId(assignedToUser._id):undefined,
+    assignedBy: new mongoose.Types.ObjectId(assignedBy),
+    status,
+    attachments,)
+7.return response 
+------------------------------------------
+    GET get-task-byid/:projectId/t/:taskId
+    --------------------------------------
+1. grab taskId
+2.aggregation pipeline to get the task document with 1.user details for whom task is assignedto, 2. subtasks array inside the doc where it has each subtask and createdBy user details for each 
+Task.aggregate
+│
+├── 1. $match
+│      └── Find Task T1
+│
+├── 2. $lookup assignedTo
+│      │
+│      ├── Find User U1
+│      │
+│      └── INNER pipeline
+│             └── $project user fields
+│
+├── 3. $lookup subtasks
+│      │
+│      ├── Find ST1
+│      │      │
+│      │      └── INNER pipeline
+│      │             ├── $lookup createdBy → User U1
+│      │             │      └── $project user fields
+│      │             │
+│      │             └── $addFields
+│      │                    └── [John] → John
+│      │
+│      └── Find ST2
+│             │
+│             └── INNER pipeline
+│                    ├── $lookup createdBy → User U2
+│                    │      └── $project user fields
+│                    │
+│                    └── $addFields
+│                           └── [Sarah] → Sarah
+│
+└── 4. $addFields
+       └── [John] → John
+3.throw error if no task 
+4.return response 
+
+-----------------
+MULTIPART REQUEST:
+-----------------
+
+A multipart request is an HTTP request format used when you want to send files along with other data in the same request.
+This is exactly what you're using with Multer.
+
+Why is it called "multipart"?
+Because the request is divided into multiple parts.
+
+For example, suppose you're updating a task:
+
+    title = "Build Login"
+    status = "COMPLETED"
+    file = design.pdf
+
+A normal JSON request would look like:
+
+    {
+      "title": "Build Login",
+      "status": "COMPLETED"
+    }
+
+But JSON isn't designed to directly carry an uploaded file.
+
+So the browser can send the request as:
+
+multipart/form-data
+
+Conceptually:
+
+      ┌─────────────────────────────────┐
+      │ Part 1                          │
+      │ title = "Build Login"           │
+      ├─────────────────────────────────┤
+      │ Part 2                          │
+      │ status = "COMPLETED"            │
+      ├─────────────────────────────────┤
+      │ Part 3                          │
+      │ file = design.pdf               │
+      │ [actual binary file data]       │
+      └─────────────────────────────────┘
+
+That's why it's multipart — one request contains multiple parts.
+CONNECTION:
+
+Frontend / Client
+      │
+      │ multipart/form-data HTTP request
+      ▼
+Backend server
+      │
+      ▼
+Multer middleware
+      │
+      ├── text fields → req.body
+      │
+      └── files → req.files
+      │
+      ▼
+Controller
+(createTask / updateTask)
+
+
+---------------------------------
+    PUT /:projectId/t/:taskId:
+    UPDATE TASK
+    -----------------------------
+
+1.grab projectId and taskId from req.params
+2.grab title,description,assignedTo,status from req.body
+3.grab uploaded files:
+const files = req.files || [];
+4.check whether the task exists AND belongs to this project:
+`````````````````````````````````````````
+    const task = await Task.findOne({
+        _id: taskId,
+        project: projectId
+    });
+
+    This checks:
+
+    task._id === taskId
+            AND
+    task.project === projectId
+`````````````````````````````````````````
+5.if task doesn't exist:
+6.create an empty updateData object
+7.update only the fields that were actually provided:
+      if (title !== undefined) {
+          updateData.title = title;
+      }
+      ......
+
+Why !== undefined?
+
+It allows partial updates.
+
+Example:
+
+{
+    "status":"COMPLETED"
+}
+
+Only status changes.
+The other fields remain unchanged.
+
+8.if new files are uploaded:
+````````````````````````````````````````````````````````````````````````````````
+      if (files.length > 0) {
+          updateData.attachments = files.map((file) => {
+              return {
+                  url:`${process.env.SERVER_URL}/images/${file.filename}`,
+                  mimetype:file.mimetype,
+                  size:file.size
+              };
+          });
+      }
+```````````````````````````````````````````````````````````````````````````````
+9.update the task:
+new:true
+    → returns the UPDATED document
+runValidators:true
+    → runs Mongoose schema validation during update
+
+10.return updated task
+---------------------------------
+    DELETE /:projectId/t/:taskId:
+    DELETE TASK
+    -----------------------------
+
+1.grab projectId and taskId from req.params
+2.find task using BOTH IDs:
+3.if task doesn't exist:
+4.delete the task:
+5.return deletedTask
+
+IMPORTANT:
+Deleting a Task does NOT automatically delete its SubTasks.
+
+Relationship:
+
+Project
+   ↓
+Task
+   ↓
+SubTask
+
+MongoDB does not automatically perform:
+
+Task deleted
+    ↓
+delete all related SubTasks
+
+If required, SubTasks must be deleted separately.
+
+
+-----------------------------------------------------
+    POST /:projectId/t/:taskId/subtasks:
+    CREATE SUBTASK
+    -----------------------------------------------------
+
+1.grab projectId and taskId from req.params
+2.grab title from req.body
+3.check whether the parent Task exists AND belongs to this Project:
+``````````````````````````````````````
+      const task = await Task.findOne({
+          _id: taskId,
+          project: projectId
+      });
+````````````````````````````````````
+4.if Task doesn't exist:
+5.create the SubTask:
+6.return created SubTask
+
+IMPORTANT:
+No need to explicitly write:
+
+isCompleted: false
+
+because schema has:
+
+isCompleted: {
+    type: Boolean,
+    default: false
+}
+
+Therefore:
+
+isCompleted not provided
+        ↓
+Mongoose checks schema
+        ↓
+default = false
+        ↓
+saved as false
+
+-------------------------------------------------
+    PUT /:projectId/st/:subTaskId:
+    UPDATE SUBTASK
+    -------------------------------------------------
+
+1.grab projectId and subTaskId from req.params
+2.grab title and isCompleted from req.body
+3.find SubTask:
+4.if SubTask doesn't exist:err
+SubTask doesn't directly contain projectId.
+Relationship:
+SubTask
+   ↓ task
+Task
+   ↓ project
+Project
+
+6.find the parent Task and check its project:
+`````````````````````````````````````````````````````````````
+      const task = await Task.findOne({
+          _id: subTask.task,
+          project: projectId
+      });
+````````````````````````````````````````````````````````````
+7.if Task doesn't belong to this Project:
+8.create updateData object
+9.only update fields that were provided:
+10.update:
+```````````````````````````````````````````````````````````
+    const updatedSubTask = await SubTask.findByIdAndUpdate(
+        subTaskId,
+        { $set: updateData },
+        { new: true, runValidators: true }
+    );
+```````````````````````````````````````````````````````````
+11.return updated SubTask
+
+IMPORTANT:
+This is a PARTIAL UPDATE.
+
+Example:
+
+{
+    "isCompleted": true
+}
+
+Result:
+
+title → unchanged
+isCompleted → true
+
+Example:
+
+{
+    "title": "Create login UI"
+}
+
+Result:
+
+title → changed
+isCompleted → unchanged
+
+
+----------------------------------------------------
+    DELETE /:projectId/st/:subTaskId:
+    DELETE SUBTASK
+    ----------------------------------------------------
+
+1.grab projectId and subTaskId from req.params
+2.find SubTask:
+3.if SubTask doesn't exist:err
+4.get the parent Task using subTask.task and verify that Task belongs to projectId:
+5.if Task doesn't belong to this Project:err
+6.delete SubTask:
+7.return deletedSubTask
+
+
+--------------------------------------------------------------------------------------------------------------------------
+    VALIDATOR MIDDLEWARE RBAC / PROJECT PERMISSION
+--------------------------------------------------
+
+validateProjectPermission(["ADMIN","PROJECT_ADMIN"])
+
+This middleware checks the user's ROLE inside the specific project.
+
+Flow:
+
+Request
+    ↓
+verifyJWT
+    ↓
+req.user identified
+    ↓
+projectId from req.params
+    ↓
+ProjectMember.findOne({
+    project: projectId,
+    user: req.user._id
+})
+    ↓
+get user's role in this project
+    ↓
+check whether role is allowed
+    ↓
+YES → next()
+NO  → 403
+
+
+Example:
+
+validateProjectPermission([
+    "ADMIN",
+    "PROJECT_ADMIN"
+])
+
+means:
+
+Only ADMIN or PROJECT_ADMIN can continue.
+
+---------------------------------
+    AUTHENTICATION vs AUTHORIZATION
+    ---------------------------------
+
+Authentication:
+"Who are you?"
+        ↓
+verifyJWT
+
+Authorization / RBAC:
+"Are you allowed to do this?"
+        ↓
+validateProjectPermission
+
+Resource ownership:
+"Does this resource belong to this project?"
+        ↓
+controller
+
+Business logic:
+"What should be created/updated/deleted?"
+        ↓
+Task / SubTask database operation
+
+
+Overall flow:
+
+Request
+    ↓
+verifyJWT
+    ↓
+identify user
+    ↓
+validateProjectPermission
+    ↓
+check project role
+    ↓
+Controller
+    ↓
+check Task/SubTask belongs to Project
+    ↓
+perform database operation
+    ↓
+response
+
+
+---------------------------------
+    OBJECTID
+    -----------------------------
+
+With normal Mongoose queries, you generally DON'T need to manually convert IDs.
+
+For example:
+✅
+Task.findById(taskId)
+
+Mongoose can cast valid string IDs according to the schema.
+Explicit conversion is commonly used in aggregation pipelines:
+✅
+$match: {
+    _id: new mongoose.Types.ObjectId(taskId)
+}
+
+because aggregation pipelines don't always get the same automatic Mongoose casting.
+
+Also:
+
+✅req.user._id
+
+is already an ObjectId when it comes from the Mongoose User document, so generally no need to do:
+
+❌new mongoose.Types.ObjectId(req.user._id)
+
+
+IMPORTANT MENTAL MODEL:
+
+Task → assignedTo
+    = who is assigned the MAIN TASK
+
+SubTask → createdBy
+    = who CREATED the subtask
+Your current SubTask schema has no assignedTo field.
+
+
+---------------------------------
+    ROUTE + MIDDLEWARE FLOW
+    -------------------------
+
+router.use(verifyJWT);
+
+Then:
+
+POST /:projectId
+    ↓
+upload.array("files")
+    ↓
+createTaskValidator()
+    ↓
+validate
+    ↓
+validateProjectPermission(["ADMIN","PROJECT_ADMIN"])
+    ↓
+createTask
+
+
+PUT /:projectId/t/:taskId
+    ↓
+upload.array("files")
+    ↓
+validateProjectPermission(["ADMIN","PROJECT_ADMIN"])
+    ↓
+updateTask
+---------
+IMPORTANT:
+---------
+Multer is placed BEFORE the controller because the controller needs:
+req.body
+req.files
+Multer parses the multipart/form-data request and creates these values before the controller executes.
+
+---------------------------------
+    API ROUTE MOUNTING
+    -----------------
+In the main app:
+app.use("/api/v1/tasks", taskRouter);
+
+If taskRouter contains:
+router.route("/:projectId")
+
+actual route becomes:
+POST /api/v1/tasks/:projectId
+
+main app path
+    +
+router path
+    =
+final API endpoint
+
+----------------------------------------------------------------------------------------------------------------
