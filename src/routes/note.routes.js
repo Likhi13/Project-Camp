@@ -11,7 +11,7 @@ import {
 } from "../middlewares/auth.middleware.js";
 
 const router=Router()
-app.use(verifyJWT)
+router.use(verifyJWT)
 
 router
 .route("/:projectId")

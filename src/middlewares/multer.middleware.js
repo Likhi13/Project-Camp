@@ -1,4 +1,4 @@
-import { multer } from "multer";
+import  multer  from "multer";
 //the method takes an object with key-value pairs{destination:value, filename:value}
 const storage = multer.diskStorage({
   //this function takes a request, file handled by multer, call back function

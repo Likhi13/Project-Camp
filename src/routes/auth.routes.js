@@ -50,7 +50,7 @@ router
     changeCurrentPassword,
   );
 router
-  .route("/reset-email-verification")
+  .route("/resend-email-verification")
   .post(verifyJWT, resendEmailVerification);
 
 
