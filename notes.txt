@@ -1298,3 +1298,457 @@ router path
 final API endpoint
 
 ----------------------------------------------------------------------------------------------------------------
+---
+NOTE ROUTES:
+---
+
+```
+GET /:projectId
+GET NOTES
+------------------------
+```
+
+1.grab projectId from req.params
+2.check whether Project exists else throw error
+3.find all notes belonging to that project:
+
+```
+const notes = await projectNote.find({ project: projectId });
+```
+
+4.return notes
+
+If user details are also needed:
+
+```
+.populate("createdBy", "avatar username fullName")
+```
+
+populate():
+lets you go one level deeper through a referenced ObjectId and bring back selected fields from the referenced document.
+
+Example:
+
+Note
+↓
+createdBy = User ID
+↓
+populate("createdBy", "avatar username fullName")
+↓
+User details attached to the note
+
+The actual Note document still stores only the User ObjectId.
+populate() only expands it in the query result.
+
+Example result:
+
+{
+content: "Fix payment API",
+createdBy: {
+_id: "U1",
+avatar: "...",
+username: "likhitha",
+fullName: "Likhitha Sanjana"
+}
+}
+
+---
+
+```
+POST /:projectId
+CREATE NOTE
+------------------------
+```
+
+1.grab projectId from req.params
+2.grab content from req.body
+3.check whether Project exists else throw error
+4.create Note:
+project → projectId
+createdBy → req.user._id
+content → content
+5.return created Note
+
+req.user._id:
+comes from verifyJWT middleware.
+
+---
+
+```
+GET /:projectId/n/:noteId
+GET NOTE BY ID
+------------------------
+```
+
+1.grab projectId and noteId from req.params
+2.check whether Project exists else throw error
+3.aggregation pipeline:
+4.$match:
+find the Note using BOTH noteId and projectId
+
+This ensures:
+
+note._id === noteId
+AND
+note.project === projectId
+
+5.$lookup projects:
+get project details for the Note
+6.inside the Project lookup pipeline:
+use $project to keep only required fields
+7.$unwind "$projectDetails":
+converts the lookup array into a single object
+8.$lookup users:
+get the user who created the Note
+9.inside the User lookup pipeline:
+use $project to keep only:
+avatar
+username
+fullName
+10.$unwind "$userDetails":
+converts the lookup array into a single object
+11.$project:
+return only:
+content
+projectDetails
+userDetails
+12.check:
+
+```
+if (!noteDetails.length)
+```
+
+because aggregate() returns an array.
+
+If no Note is found:
+
+noteDetails = []
+
+[] is truthy in JavaScript.
+
+Therefore:
+
+if (!noteDetails)
+❌ does NOT detect an empty array
+
+Instead:
+
+if (!noteDetails.length)
+✅ detects an empty array
+
+13.return noteDetails[0]
+
+aggregate() always returns an array, even when only one Note is expected.
+
+Therefore:
+
+noteDetails
+↓
+[ one note object ]
+↓
+noteDetails[0]
+↓
+one note object
+
+---
+
+```
+AGGREGATION CONCEPTS:
+```
+
+---
+
+$lookup:
+used to join another collection with the current documents.
+
+IMPORTANT:
+$lookup creates an ARRAY.
+
+Example:
+
+projectDetails: [
+{
+name: "E-commerce",
+description: "Online shopping"
+}
+]
+
+Even when only one matching Project exists.
+
+$unwind:
+converts the array into an individual object/document.
+
+$project:
+controls which fields are included in the output.
+
+$addFields:
+adds new fields or modifies existing fields in the current document.
+
+$unwind:
+array → object
+
+$addFields:
+add/calculate/transform fields
+
+IMPORTANT:
+$addFields can also be used inside the nested pipeline of a $lookup.
+
+The nested pipeline works on the documents being looked up.
+
+---
+
+```
+PUT /:projectId/n/:noteId
+UPDATE NOTE
+------------------------
+```
+
+1.grab projectId and noteId from req.params
+2.grab content from req.body
+3.find Note using BOTH:
+noteId
+projectId
+4.if Note doesn't exist
+5.update only the content
+6.use:
+new
+→ returns updated document
+
+```
+runValidators:true
+    → runs Mongoose schema validation during update
+```
+
+7.return updated Note
+
+---
+
+```
+DELETE /:projectId/n/:noteId
+DELETE NOTE
+------------------------
+```
+
+1.grab projectId and noteId from req.params
+2.find Note using BOTH:
+noteId
+projectId
+3.if Note doesn't exist
+4.delete Note
+5.return deletedNote
+
+---
+
+```
+VALIDATION MIDDLEWARE
+```
+
+---
+
+createNoteValidator()
+
+This is a FUNCTION THAT RETURNS validation middleware.
+
+Example:
+
+createNoteValidator()
+↓
+returns:
+[
+body("content")
+.trim()
+.notEmpty()
+.withMessage("Note can't be empty")
+]
+↓
+Express uses the returned middleware
+
+validate:
+
+validate is ALREADY a middleware function.
+
+Therefore:
+
+createNoteValidator()
+→ () because it creates/returns middleware
+
+validate
+→ no () because it is already middleware
+
+Flow:
+
+createNoteValidator()
+↓
+checks req.body fields
+↓
+stores validation errors
+↓
+validate
+↓
+validationResult(req)
+↓
+checks whether errors exist
+↓
+NO errors → next()
+↓
+controller
+
+IMPORTANT:
+
+createNoteValidator()
+= defines/checks validation rules
+
+validate
+= reads the errors produced by express-validator and decides whether to continue
+
+----------------------------------------------------------------
+
+```
+MIDDLEWARE FACTORY vs MIDDLEWARE
+```
+
+---
+
+Middleware itself:
+
+verifyJWT
+validate
+
+Use without ().
+
+They already have the form:
+
+(req, res, next) => { ... }
+
+Middleware factory:
+
+createNoteValidator()
+validateProjectPermission(["ADMIN"])
+
+Use () because you are calling a function that returns middleware.
+
+Conceptually:
+
+createNoteValidator()
+↓
+returns middleware
+↓
+Express executes that middleware when request arrives
+
+validateProjectPermission(["ADMIN"])
+↓
+function receives allowed roles
+↓
+returns middleware
+↓
+middleware checks the logged-in user's role
+↓
+next()
+
+-----------------------------------------------------------------
+
+```
+AUTHENTICATION vs AUTHORIZATION
+```
+
+---
+
+Authentication:
+"Who are you?"
+↓
+verifyJWT
+
+verifyJWT:
+1.grab JWT from cookie or Authorization header
+2.if token doesn't exist:401
+3.jwt.verify(token, secret)
+4.get decodedToken
+5.find User using decodedToken._id
+6.if User doesn't exist:401
+7.attach User to req.user
+8.next()
+
+jwt.verify():
+
+Checks whether the JWT is valid.
+
+It:
+1.verifies the token signature
+2.checks expiration/other relevant claims
+3.if valid → returns decoded payload
+4.if invalid/expired/tampered → throws an error
+
+IMPORTANT:
+
+Overall:
+
+Request
+↓
+verifyJWT
+↓
+identify user
+↓
+validateProjectPermission
+↓
+check project role
+↓
+controller
+↓
+check resource belongs to project
+↓
+database operation
+↓
+response
+
+----------------------------------------------------------------
+
+```
+JAVASCRIPT EMPTY ARRAY
+```
+
+---
+
+IMPORTANT DIFFERENCE:
+
+Python:
+
+bool([])
+→ False
+
+JavaScript:
+
+Boolean([])
+→ true
+
+-------------------------------------------------------------------
+```
+NODEMON
+```
+---
+
+Nodemon:
+development tool that automatically restarts the Node.js server when code changes.
+
+npm run dev
+↓
+package.json
+↓
+"dev": "nodemon src/index.js"
+↓
+nodemon starts Node
+↓
+server starts
+↓
+code changes
+↓
+nodemon detects change
+↓
+restarts Node
+↓
+new code runs
+
+Node.js:
+actually runs the backend application.
+
+Nodemon:
+watches files and restarts Node during development.

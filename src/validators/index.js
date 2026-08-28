@@ -102,9 +102,10 @@ const addMemberToProjectValidator = () => {
 };
 const createTaskValidator = () => {
   return [
-    body("title").notEmpty().withMessage("Title is required"),
+    body("title").trim().notEmpty().withMessage("Title is required"),
     body("description").optional(),
     body("assignedTo")
+      .trim()
       .notEmpty()
       .withMessage("Task must be assigned")
       .isEmail()
@@ -112,7 +113,10 @@ const createTaskValidator = () => {
   ];
 };
 const createSubTaskValidator = () => {
-  return [body("title").notEmpty().withMessage("Title is required")];
+  return [body("title").trim().notEmpty().withMessage("Title is required")];
+};
+const createNoteValidator = () => {
+  return [body("content").trim().notEmpty().withMessage("Note can't be empty")];
 };
 
 export {
@@ -125,4 +129,5 @@ export {
   addMemberToProjectValidator,
   createTaskValidator,
   createSubTaskValidator,
+  createNoteValidator
 };
