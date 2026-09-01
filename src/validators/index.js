@@ -57,10 +57,6 @@ const userForgotPasswordValidator = () => {
       .isEmail()
       .withMessage("Email is invalid"),
   ];
-
-  const userResetForgotPasswordValidator = () => {
-    return [body("newPassword").notEmpty().withMessage("password is required")];
-  };
 };
 
 const userResetForgotPasswordValidator = () => {
@@ -105,11 +101,9 @@ const createTaskValidator = () => {
     body("title").trim().notEmpty().withMessage("Title is required"),
     body("description").optional(),
     body("assignedTo")
-      .trim()
-      .notEmpty()
-      .withMessage("Task must be assigned")
-      .isEmail()
-      .withMessage("Invalid  email address"),
+      .optional()
+      .isMongoId()
+      .withMessage("Invalid assigned user"),
   ];
 };
 const createSubTaskValidator = () => {

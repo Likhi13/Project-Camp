@@ -9,19 +9,28 @@ import {
   verifyJWT,
   validateProjectPermission,
 } from "../middlewares/auth.middleware.js";
-
+import { AvailableUserRole, UserRolesEnum } from "../utils/constants.js";
 const router=Router()
 router.use(verifyJWT)
 
 router
-.route("/:projectId")
-.get(validateProjectPermission(["ADMIN","PROJECT_ADMIN","MEMBER"]),getNotes)
-.post(createNoteValidator(),validate,validateProjectPermission(["ADMIN"]),createNote)
+  .route("/:projectId")
+  .get(validateProjectPermission(AvailableUserRole), getNotes)
+  .post(
+    createNoteValidator(),
+    validate,
+    validateProjectPermission([UserRolesEnum.ADMIN]),
+    createNote,
+  );
 
 router
-.route("/:projectId/n/:noteId")
-.get(validateProjectPermission(["ADMIN","PROJECT_ADMIN","MEMBER"]),getNoteById)
-.put(createNoteValidator(),validate,validateProjectPermission(["ADMIN"]),updateNote)
-.delete(validateProjectPermission(["ADMIN"]),deleteNote)
-
+  .route("/:projectId/n/:noteId")
+  .get(validateProjectPermission(AvailableUserRole), getNoteById)
+  .put(
+    createNoteValidator(),
+    validate,
+    validateProjectPermission([UserRolesEnum.ADMIN]),
+    updateNote,
+  )
+  .delete(validateProjectPermission([UserRolesEnum.ADMIN]), deleteNote);
 export default router

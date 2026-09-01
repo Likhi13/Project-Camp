@@ -48,7 +48,7 @@ const userSchema = new Schema(
     refreshToken: {
       type: String,
     },
-    forgotpaswordToken: {
+    forgotPasswordToken: {
       type: String,
     },
     forgotPasswordExpiry: {
@@ -63,7 +63,7 @@ const userSchema = new Schema(
   },   { timestamps: true },
 );
 //pre-hooks- hash pswd - need context so usinf function
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
   //if not modified return next()
   if (!this.isModified("password")) return;
 

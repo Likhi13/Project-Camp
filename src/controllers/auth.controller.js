@@ -70,7 +70,7 @@ const registerUser = asyncHandler(async (req, res) => {
     //generate a dynamic link from request
     mailgenContent: emailVerifContent(
       user.username,
-      `${req.protocol}://${req.get("host")}/api/v1/users/verify-email/${unHashedToken}`,
+      `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unHashedToken}`,
     ),
   });
 
@@ -128,10 +128,11 @@ const login = asyncHandler(async (req, res) => {
 
   //store tokens in cookies
   //cookies need options
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
+const options = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+};
 
   return res
     .status(200)
@@ -158,10 +159,11 @@ const logoutUser = asyncHandler(async (req, res) => {
   );
 
   //set options for cookie clearing
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
+const options = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+};
 
   return res
     .status(200)
@@ -223,7 +225,8 @@ const resendEmailVerification = asyncHandler(async (req, res) => {
     throw new ApiError(409, "Email is already verified");
   }
   //grab tokens
-  const { unHashedToken, hashedToken, tokenExpiry } = user.generateTemporaryToken();
+  const { unHashedToken, hashedToken, tokenExpiry } =
+    user.generateTemporaryToken();
   //assign to user object
   user.emailVerificationToken = hashedToken;
   user.emailVerificationExpiry = tokenExpiry;
@@ -236,7 +239,7 @@ const resendEmailVerification = asyncHandler(async (req, res) => {
     subject: "Please verify your emmail",
     mailgenContent: emailVerifContent(
       user.username,
-      `${req.protocol}://${req.get("host")}/api/v1/users/verify-email/${unHashedToken}`,
+      `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unHashedToken}`,
     ),
   });
 
@@ -247,7 +250,8 @@ const resendEmailVerification = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   //grab old token
-  const incomingRefreshToken = req.cookies?.refreshToken || req.body.refreshToken;
+  const incomingRefreshToken =
+    req.cookies?.refreshToken || req.body.refreshToken;
 
   //check if exists or unauth
   if (!incomingRefreshToken) {
@@ -274,10 +278,11 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     }
 
     //options for cookie
-    const options = {
-      httpOnly: true,
-      secure: true,
-    };
+const options = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+};
 
     //generate access token based on id
     //Take the property refreshToken from the returned object.Store it in a variable named newRefreshToken.
@@ -311,7 +316,7 @@ const forgotPasswordRequest = asyncHandler(async (req, res) => {
   const { unHashedToken, hashedToken, tokenExpiry } =
     user.generateTemporaryToken();
 
-  user.forgotpaswordToken = hashedToken;
+  user.forgotPasswordToken = hashedToken;
   user.forgotPasswordExpiry = tokenExpiry;
 
   await user.save({ validateBeforeSave: false });
@@ -341,20 +346,23 @@ const resetForgotPassword = asyncHandler(async (req, res) => {
   const { newPassword } = req.body;
 
   //hash the token
-  let hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+  let hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
 
   //find user matching that token and within expiry
   const user = await User.findOne({
-    forgotpaswordToken: hashedToken,
+    forgotPasswordToken: hashedToken,
     forgotPasswordExpiry: { $gt: Date.now() },
   });
 
   if (!user) {
-    throw new ApiError(489, "Token is invalid or expired");
+    throw new ApiError(400, "Token is invalid or expired");
   }
   //clean fields
   user.forgotPasswordExpiry = undefined;
-  user.forgotPasswordExpiry = undefined;
+  user.forgotPasswordToken = undefined;
 
   //assign pswd
   user.password = newPassword;

@@ -20,45 +20,62 @@ import {
   validateProjectPermission,
 } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
+import { AvailableUserRole, UserRolesEnum } from "../utils/constants.js";
+
 const router = Router();
 
 router.use(verifyJWT);
 router
   .route("/:projectId")
-  .get(
-    validateProjectPermission(["ADMIN", "PROJECT_ADMIN", "MEMBER"]),
-    getTasks,
-  )
+  .get(validateProjectPermission(AvailableUserRole), getTasks)
   .post(
     upload.array("files"),
     createTaskValidator(),
     validate,
-    validateProjectPermission(["ADMIN", "PROJECT_ADMIN"]),
+    validateProjectPermission([
+      UserRolesEnum.ADMIN,
+      UserRolesEnum.PROJECT_ADMIN,
+    ]),
     createTask,
   );
 router
   .route("/:projectId/t/:taskId")
-  .get(
-    validateProjectPermission(["ADMIN", "PROJECT_ADMIN", "MEMBER"]),
-    getTaskById,
-  )
+  .get(validateProjectPermission(AvailableUserRole), getTaskById)
   .put(
     upload.array("files"),
-    validateProjectPermission(["ADMIN", "PROJECT_ADMIN"]),
+    validateProjectPermission([
+      UserRolesEnum.ADMIN,
+      UserRolesEnum.PROJECT_ADMIN,
+    ]),
     updateTask,
   )
-  .delete(validateProjectPermission(["ADMIN", "PROJECT_ADMIN"]), deleteTask);
+  .delete(
+    validateProjectPermission([
+      UserRolesEnum.ADMIN,
+      UserRolesEnum.PROJECT_ADMIN,
+    ]),
+    deleteTask,
+  );
 
 router
   .route("/:projectId/t/:taskId/subtasks")
   .post(
     createSubTaskValidator(),
     validate,
-    validateProjectPermission(["ADMIN", "PROJECT_ADMIN"]),
+    validateProjectPermission([
+      UserRolesEnum.ADMIN,
+      UserRolesEnum.PROJECT_ADMIN,
+    ]),
     createSubTask,
   );
 router
   .route("/:projectId/st/:subTaskId")
-  .put(validateProjectPermission(["ADMIN", "PROJECT_ADMIN", "MEMBER"]))
-  .delete(validateProjectPermission(["ADMIN", "PROJECT_ADMIN"]), deleteSubTask);
+  .put(validateProjectPermission(AvailableUserRole), updateSubTask)
+  .delete(
+    validateProjectPermission([
+      UserRolesEnum.ADMIN,
+      UserRolesEnum.PROJECT_ADMIN,
+    ]),
+    deleteSubTask,
+  );
 export default router;

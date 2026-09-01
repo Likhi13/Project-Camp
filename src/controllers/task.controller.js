@@ -16,7 +16,7 @@ const getTasks = asyncHandler(async (req, res) => {
   }
   const tasks = await Task.find({
     project: new mongoose.Types.ObjectId(projectId),
-  }).populate("assignedTo", "avatar username FullName");
+  }).populate("assignedTo", "avatar username fullName");
   return res
     .status(200)
     .json(new ApiResponse(200, tasks, "Tasks retrieved successfully"));
@@ -38,19 +38,22 @@ const createTask = asyncHandler(async (req, res) => {
   if (!project) {
     throw new ApiError(404, "Project not found");
   }
-
   const assignedBy = req.user._id;
-  const assignedToUser = await User.findOne({ email: assignedTo });
-  if (!assignedToUser) {
-    throw new ApiError(404, "User doesn't exist");
+
+  // assignedTo is now optional, and expected to be a user _id (not an email)
+  if (assignedTo) {
+    const assignedToUser = await User.findById(assignedTo);
+    if (!assignedToUser) {
+      throw new ApiError(404, "Assigned user doesn't exist");
+    }
   }
-  //test this route will work when status is wrong?
+
   const newTask = await Task.create({
     title,
     description,
     project: new mongoose.Types.ObjectId(projectId),
     assignedTo: assignedTo
-      ? new mongoose.Types.ObjectId(assignedToUser._id)
+      ? new mongoose.Types.ObjectId(assignedTo)
       : undefined,
     assignedBy: new mongoose.Types.ObjectId(assignedBy),
     status,
@@ -136,7 +139,7 @@ const getTaskById = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  if (!tasks || task.length === 0) {
+  if (!task || task.length === 0) {
     throw new ApiError(404, "Task not found");
   }
   return res
@@ -238,7 +241,7 @@ const updateSubTask = asyncHandler(async (req, res) => {
   }
   const task = await Task.findOne({
     _id: new mongoose.Types.ObjectId(subTask.task),
-    project: mongoose.Types.ObjectId(projectId),
+    project: new mongoose.Types.ObjectId(projectId),
   });
   if (!task) {
     throw new ApiError(404, "Subtask not found in project");
@@ -255,26 +258,29 @@ const updateSubTask = asyncHandler(async (req, res) => {
     { $set: updateData },
     { new: true, runValidators: true },
   );
-  return res.status(200).json(new ApiResponse(200,updatedSubTask,"Subtask updated successfully"))
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedSubTask, "Subtask updated successfully"));
 });
 
 const deleteSubTask = asyncHandler(async (req, res) => {
-  const {projectId,subTaskId}=req.params
-  const subTask=await SubTask.findById(subTaskId) 
-  if(!subTask){
-    throw new ApiError(404,"Subtask not found")
+  const { projectId, subTaskId } = req.params;
+  const subTask = await SubTask.findById(subTaskId);
+  if (!subTask) {
+    throw new ApiError(404, "Subtask not found");
   }
-  const task=await Task.findOne(
-    {_id:new mongoose.Types.ObjectId(subTask.task),
-    project:mongoose.Types.ObjectId(projectId)
-    }
-  )
-  if(!task){
-    throw new ApiError(404,"Subtask doesn't belong to the Project")
+  const task = await Task.findOne({
+    _id: new mongoose.Types.ObjectId(subTask.task),
+    project: new mongoose.Types.ObjectId(projectId),
+  });
+  if (!task) {
+    throw new ApiError(404, "Subtask doesn't belong to the Project");
   }
 
-  const deletedSubTask=await SubTask.findByIdAndDelete(subTaskId)
-  return res.status(200).json(new ApiResponse(200,deletedSubTask,"Subtask deleted successfully"))
+  const deletedSubTask = await SubTask.findByIdAndDelete(subTaskId);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, deletedSubTask, "Subtask deleted successfully"));
 });
 
 export {

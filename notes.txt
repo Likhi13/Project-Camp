@@ -1752,3 +1752,54 @@ actually runs the backend application.
 
 Nodemon:
 watches files and restarts Node during development.
+------------------------------------------------------------------------------
+BUGS:
+MONGOOSE SUPPORTS ASYNC PRE-HOOKS NATIVELY — NO NEXT NEEDED AS LONG AS YOU DON'T DECLARE THE PARAMETER. MIXING "DECLARES NEXT" + "IS ASYNC" IS THE ACTUAL BUG; PICK ONE STYLE, NOT BOTH.
+```
+    userSchema.pre("save", async function (next) {
+    if (!this.isModified("password")) return;
+    this.password = await bcrypt.hash(this.password, 8);
+    });
+```
+Why it's broken: You've declared next as a parameter, which tells Mongoose "this middleware uses the callback pattern — wait for me to call next()." But you never call it. Every single .save() on a User document (register, password change, anything) will hang forever — the promise never resolves, no error, it just times out eventually (or hangs your request). This will make registration look "stuck" with no clear error, which is a nasty one to debug blind.
+
+Fix — drop the next param entirely and let the async function's own promise resolve/reject:
+
+```
+    userSchema.pre("save", async function () {
+    if (!this.isModified("password")) return;
+    this.password = await bcrypt.hash(this.password, 8);
+    });
+```
+----------------------------
+BUG 2:
+---------------------------
+
+Will break your React integration — cookie config, auth.controller.js
+javascript
+const options = {
+  httpOnly: true,
+  secure: true,
+};
+
+This appears in login, logoutUser, and refreshAccessToken. secure: true means the cookie is only ever sent over HTTPS. Your React dev server (Vite, port 5173) will be talking to your backend (port 3000) over plain http://localhost — the browser will silently drop these cookies, so login will appear to "succeed" (200 response) but no session will actually persist, and every subsequent secured request will look logged-out. There's also no sameSite set, which matters once you're doing cross-origin fetch/axios with credentials: "include".
+
+Fix — make it environment-aware:
+
+javascript
+const options = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+};
+
+This is important to fix before we wire up the frontend, or auth will look broken for reasons that have nothing to do with the React code.
+-------------------
+BUG  3:
+-------------------
+🔴 Critical for the frontend — CORS_ORIGIN=* will silently break login
+
+Your app.js sets credentials: true on CORS and your auth cookies rely on the browser accepting them cross-origin.
+ Per the CORS spec, browsers refuse to expose Access-Control-Allow-Origin: * responses when credentials: true/cookies are involved 
+ this isn't a server error, the browser just blocks it client-side, silently.
+  Your login request will look like it succeeded (you'll see a 200 in the Network tab) but the cookie never actually gets set, and the next secured request will look logged-out.
