@@ -13,7 +13,7 @@ import ProfileSettings from "./pages/ProfileSettings";
 
 export default function App() {
   return (
-    <BrowserRouter basename="/Project-Camp">
+    <BrowserRouter basename="/project-camp">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
