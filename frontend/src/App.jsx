@@ -9,6 +9,7 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import ProjectsList from "./pages/projects/ProjectsList";
 import ProjectDetails from "./pages/projects/ProjectDetails";
+import ProfileSettings from "./pages/ProfileSettings";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/projects" element={<ProjectsList />} />
             <Route path="/projects/:projectId" element={<ProjectDetails />} />
+            <Route path="/settings" element={<ProfileSettings />} />
           </Route>
         </Route>
       </Routes>

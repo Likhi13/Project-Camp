@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutGrid, Plus } from "lucide-react";
+import { LayoutGrid, Plus, Settings } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useProjects } from "../../context/ProjectsContext";
 import ProjectFormModal from "../../pages/projects/ProjectFormModal";
@@ -85,7 +85,15 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <div className="px-4 py-4 border-t border-black/10 dark:border-white/10">
+      {/* Profile / Settings */}
+      <NavLink
+        to="/settings"
+        className={({ isActive }) =>
+          `px-4 py-4 border-t border-black/10 dark:border-white/10 block transition ${
+            isActive ? "bg-accent/10" : "hover:bg-black/5 dark:hover:bg-white/5"
+          }`
+        }
+      >
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 rounded-full bg-accent/15 text-accent flex items-center justify-center text-sm font-medium overflow-hidden shrink-0">
             {user?.avatar?.url ? (
@@ -99,7 +107,7 @@ export default function Sidebar() {
             )}
           </div>
 
-          <div className="text-sm min-w-0">
+          <div className="text-sm min-w-0 flex-1">
             <p className="font-medium leading-tight truncate">
               {user?.fullName || user?.username}
             </p>
@@ -108,8 +116,10 @@ export default function Sidebar() {
               {user?.email}
             </p>
           </div>
+
+          <Settings size={16} className="text-muted shrink-0" />
         </div>
-      </div>
+      </NavLink>
 
       {showCreate && (
         <ProjectFormModal

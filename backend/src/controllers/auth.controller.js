@@ -375,25 +375,35 @@ const resetForgotPassword = asyncHandler(async (req, res) => {
 
 //secure route
 const changeCurrentPassword = asyncHandler(async (req, res) => {
-  //take user input
   const { oldPassword, newPassword } = req.body;
-  //find user
+
   const user = await User.findById(req.user?._id);
 
-  //check if old pswd crct
+  if (!user) {
+    throw new ApiError(404, "User doesn't exist");
+  }
+
   const isPasswordValid = await user.isPasswordCorrect(oldPassword);
 
   if (!isPasswordValid) {
     throw new ApiError(400, "Invalid old password");
   }
+
+  if (oldPassword === newPassword) {
+    throw new ApiError(
+      400,
+      "New password must be different from your current password",
+    );
+  }
+
   user.password = newPassword;
+
   await user.save({ validateBeforeSave: false });
 
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "Password changed succcessfully"));
+    .json(new ApiResponse(200, {}, "Password changed successfully"));
 });
-
 export {
   registerUser,
   login,
