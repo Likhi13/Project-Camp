@@ -70,7 +70,7 @@ const registerUser = asyncHandler(async (req, res) => {
     //generate a dynamic link from request
     mailgenContent: emailVerifContent(
       user.username,
-      `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unHashedToken}`,
+      `${process.env.EMAIL_VERIFICATION_REDIRECT_URL}/${unHashedToken}`,
     ),
   });
 
@@ -128,11 +128,11 @@ const login = asyncHandler(async (req, res) => {
 
   //store tokens in cookies
   //cookies need options
-const options = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-};
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  };
 
   return res
     .status(200)
@@ -159,11 +159,11 @@ const logoutUser = asyncHandler(async (req, res) => {
   );
 
   //set options for cookie clearing
-const options = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-};
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  };
 
   return res
     .status(200)
@@ -239,7 +239,7 @@ const resendEmailVerification = asyncHandler(async (req, res) => {
     subject: "Please verify your emmail",
     mailgenContent: emailVerifContent(
       user.username,
-      `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unHashedToken}`,
+      `${process.env.EMAIL_VERIFICATION_REDIRECT_URL}/${unHashedToken}`,
     ),
   });
 
@@ -278,11 +278,11 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     }
 
     //options for cookie
-const options = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-};
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    };
 
     //generate access token based on id
     //Take the property refreshToken from the returned object.Store it in a variable named newRefreshToken.

@@ -151,18 +151,23 @@ const updateTask = asyncHandler(async (req, res) => {
   const { projectId, taskId } = req.params;
   const { title, description, assignedTo, status } = req.body;
   const files = req.files || [];
+
   const task = await Task.findOne({
     _id: taskId,
     project: projectId,
   });
+
   if (!task) {
     throw new ApiError(404, "Task not found in this project");
   }
+
   const updateData = {};
-  //update only fields that were provided
+
+  // Update only fields that were provided
   if (title !== undefined) {
     updateData.title = title;
   }
+
   if (description !== undefined) {
     updateData.description = description;
   }
@@ -174,28 +179,34 @@ const updateTask = asyncHandler(async (req, res) => {
   if (status !== undefined) {
     updateData.status = status;
   }
-  //if new files are uploaded
+
+  // Append new files to existing attachments
   if (files.length > 0) {
-    updateData.attachments = files.map((file) => {
+    const newAttachments = files.map((file) => {
       return {
         url: `${process.env.SERVER_URL}/images/${file.filename}`,
         mimetype: file.mimetype,
         size: file.size,
       };
     });
+
+    updateData.attachments = [...(task.attachments || []), ...newAttachments];
   }
 
-  const updatedtask = await Task.findByIdAndUpdate(
+  const updatedTask = await Task.findByIdAndUpdate(
     new mongoose.Types.ObjectId(taskId),
     {
       $set: updateData,
     },
-    { new: true, runValidators: true },
+    {
+      new: true,
+      runValidators: true,
+    },
   );
 
   return res
     .status(200)
-    .json(new ApiResponse(200, updatedtask, "Task updated successfully"));
+    .json(new ApiResponse(200, updatedTask, "Task updated successfully"));
 });
 
 const deleteTask = asyncHandler(async (req, res) => {
